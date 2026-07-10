@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Expense Ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F6F7F3;
+    --ink:#161D18;
+    --ink-soft:#5A6560;
+    --line:#D9DED8;
+    --green:#1E7A4A;
+    --green-dark:#145C37;
+    --red:#B3402A;
+    --card:#FFFFFF;
+    --chip-bg:#EAF3EC;
+    --chip-fg:#145C37;
+    --danger-bg:#F7ECE9;
+    --seg-bg:#ECEEE9;
+    --receipt-bg:#161D18;
+    --receipt-fg:#F6F7F3;
+    --receipt-line:#3A453E;
+    --receipt-soft:#AEB8B0;
+    --receipt-border:transparent;
+    --radius:14px;
+  }
+  body.dark{
+    --paper:#121613;
+    --ink:#E7ECE8;
+    --ink-soft:#93A098;
+    --line:#2A322C;
+    --green:#3AAE74;
+    --green-dark:#4FC98A;
+    --red:#E06A50;
+    --card:#1A201C;
+    --chip-bg:#20342A;
+    --chip-fg:#7BD3A6;
+    --danger-bg:#3A241F;
+    --seg-bg:#1A201C;
+    --receipt-bg:#0C0F0D;
+    --receipt-fg:#E7ECE8;
+    --receipt-line:#2A322C;
+    --receipt-soft:#93A098;
+    --receipt-border:#2A322C;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:'Archivo',system-ui,sans-serif;
+    background:var(--paper);
+    color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:520px;margin:0 auto;padding:20px 16px 60px}
+
+  /* ---------- view toggle ---------- */
+  .views{
+    display:flex;background:var(--seg-bg);border:1px solid var(--line);
+    border-radius:99px;padding:3px;margin-bottom:14px;
+  }
+  .views button{
+    flex:1;border:none;background:none;cursor:pointer;
+    font-family:inherit;font-size:13px;font-weight:600;color:var(--ink-soft);
+    padding:8px 0;border-radius:99px;
+  }
+  .views button.active{background:var(--ink);color:var(--paper)}
+
+  /* ---------- month summary rows (year/all views) ---------- */
+  .month-row-item{
+    background:var(--card);border:1px solid var(--line);
+    display:flex;align-items:center;gap:12px;
+    padding:14px;border-radius:12px;margin-bottom:6px;cursor:pointer;
+  }
+  .month-row-item:hover{border-color:var(--green)}
+  .month-row-item .mname{flex:1;font-size:14px;font-weight:600}
+  .month-row-item .mcount{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink-soft)}
+  .month-row-item .mtotal{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums}
+  .month-row-item .arrow{color:var(--ink-soft);font-size:13px}
+
+  /* ---------- header ---------- */
+  header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;gap:10px}
+  header h1{font-size:15px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;flex:1}
+  #themeBtn{
+    background:none;border:1px solid var(--line);color:var(--ink-soft);
+    width:30px;height:30px;border-radius:9px;cursor:pointer;font-size:14px;line-height:1;
+  }
+  #themeBtn:hover{border-color:var(--ink-soft);color:var(--ink)}
+  #syncBadge{
+    font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink-soft);
+    display:flex;align-items:center;gap:6px;
+  }
+  #syncBadge .dot{width:7px;height:7px;border-radius:50%;background:var(--line)}
+  #syncBadge.ok .dot{background:var(--green)}
+  #syncBadge.err .dot{background:var(--red)}
+  #syncBadge.busy .dot{background:#D9A521;animation:pulse 1s infinite}
+  @keyframes pulse{50%{opacity:.35}}
+
+  /* ---------- month total (signature "receipt" block) ---------- */
+  .receipt{
+    background:var(--receipt-bg);color:var(--receipt-fg);border:1px solid var(--receipt-border);
+    border-radius:var(--radius);
+    padding:20px 20px 16px;margin-bottom:16px;
+  }
+  .receipt .month-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+  .receipt .month-name{font-family:'IBM Plex Mono',monospace;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--receipt-soft)}
+  .receipt button{
+    background:none;border:1px solid var(--receipt-line);color:var(--receipt-fg);
+    width:28px;height:28px;border-radius:8px;font-size:14px;cursor:pointer;
+  }
+  .receipt button:hover{border-color:#6b776f}
+  .receipt .total{
+    font-family:'IBM Plex Mono',monospace;font-weight:600;
+    font-size:clamp(30px,9vw,40px);font-variant-numeric:tabular-nums;
+    letter-spacing:-.01em;
+  }
+  .receipt .tear{
+    border:none;border-top:1.5px dashed var(--receipt-line);margin:14px 0 10px;
+  }
+  .receipt .meta{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--receipt-soft);display:flex;justify-content:space-between}
+
+  /* ---------- add form ---------- */
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:16px}
+  .card h2{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:12px}
+  .row{display:flex;gap:10px}
+  .field{flex:1;margin-bottom:10px}
+  label{display:block;font-size:11px;font-weight:600;color:var(--ink-soft);margin-bottom:4px;letter-spacing:.04em;text-transform:uppercase}
+  input,select{
+    width:100%;padding:10px 12px;font-size:15px;font-family:inherit;
+    border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);
+  }
+  input:focus,select:focus{outline:2px solid var(--green);outline-offset:1px;border-color:var(--green)}
+  input[type=number]{font-family:'IBM Plex Mono',monospace}
+  .btn{
+    width:100%;padding:12px;border:none;border-radius:10px;cursor:pointer;
+    background:var(--green);color:#fff;font-family:inherit;font-size:15px;font-weight:600;
+  }
+  .btn:hover{background:var(--green-dark)}
+  .btn:disabled{opacity:.5;cursor:default}
+  .btn.cancel{background:none;border:1px solid var(--line);color:var(--ink-soft);margin-top:8px}
+  .btn.cancel:hover{border-color:var(--ink-soft);color:var(--ink)}
+
+  /* ---------- list ---------- */
+  .day-group{margin-bottom:14px}
+  .day-head{
+    display:flex;justify-content:space-between;
+    font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink-soft);
+    letter-spacing:.05em;text-transform:uppercase;
+    padding:0 4px 6px;
+  }
+  .entry{
+    background:var(--card);border:1px solid var(--line);
+    display:flex;align-items:center;gap:12px;
+    padding:11px 12px;border-radius:12px;margin-bottom:6px;
+  }
+  .entry .cat{
+    font-size:11px;font-weight:600;letter-spacing:.03em;
+    background:var(--chip-bg);color:var(--chip-fg);
+    padding:3px 8px;border-radius:99px;white-space:nowrap;
+  }
+  .entry .note{flex:1;font-size:14px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .entry .note.empty{color:var(--ink-soft);font-style:italic}
+  .entry .amt{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums}
+  .entry .del{
+    background:none;border:none;color:var(--ink-soft);cursor:pointer;font-size:15px;
+    padding:2px 4px;border-radius:6px;line-height:1;
+  }
+  .entry .del:hover{color:var(--red);background:var(--danger-bg)}
+  .entry .edit{
+    background:none;border:none;color:var(--ink-soft);cursor:pointer;font-size:13px;
+    padding:2px 4px;border-radius:6px;line-height:1;
+  }
+  .entry .edit:hover{color:var(--green-dark);background:var(--chip-bg)}
+  .entry.editing{outline:2px solid var(--green);border-color:var(--green)}
+  .empty-state{
+    text-align:center;color:var(--ink-soft);font-size:14px;padding:30px 10px;
+    border:1.5px dashed var(--line);border-radius:var(--radius);
+  }
+
+  /* ---------- setup notice ---------- */
+  .setup{background:#FFF8E6;border:1px solid #EBD9A3;border-radius:var(--radius);padding:16px;margin-bottom:16px;font-size:14px;line-height:1.55}
+  .setup strong{display:block;margin-bottom:6px}
+  .setup ol{margin:8px 0 0 18px}
+  .setup li{margin-bottom:4px}
+  .setup code{font-family:'IBM Plex Mono',monospace;font-size:12px;background:#F3E9CB;padding:1px 5px;border-radius:5px}
+
+  .toast{
+    position:fixed;left:50%;bottom:20px;transform:translateX(-50%);
+    background:var(--ink);color:var(--paper);font-size:13px;
+    padding:10px 16px;border-radius:99px;opacity:0;pointer-events:none;
+    transition:opacity .25s;
+  }
+  .toast.show{opacity:1}
+  @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>Expense Ledger</h1>
+    <span id="syncBadge"><span class="dot"></span><span id="syncText">offline</span></span>
+    <button id="themeBtn" aria-label="Toggle dark mode" title="Toggle dark mode">◐</button>
+  </header>
+
+  <div id="setupNotice" class="setup" style="display:none">
+    <strong>One-time setup needed</strong>
+    Paste your Google Apps Script Web App URL into the <code>SCRIPT_URL</code> line near the top of this file, then reload.
+    Full steps are in the instructions that came with this app.
+  </div>
+
+  <div class="views">
+    <button data-v="month" class="active">Month</button>
+    <button data-v="year">Year</button>
+    <button data-v="all">All</button>
+  </div>
+
+  <div class="receipt">
+    <div class="month-row">
+      <button id="prevMonth" aria-label="Previous month">‹</button>
+      <span class="month-name" id="monthName">—</span>
+      <button id="nextMonth" aria-label="Next month">›</button>
+    </div>
+    <div class="total" id="monthTotal">0</div>
+    <hr class="tear">
+    <div class="meta">
+      <span id="entryCount">0 entries</span>
+      <span id="todayTotal">today: 0</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 id="formTitle">Add expense</h2>
+    <div class="row">
+      <div class="field">
+        <label for="amount">Amount</label>
+        <input type="number" id="amount" inputmode="decimal" min="0" step="any" placeholder="0">
+      </div>
+      <div class="field">
+        <label for="category">Category</label>
+        <select id="category"></select>
+      </div>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label for="date">Date</label>
+        <input type="date" id="date">
+      </div>
+      <div class="field">
+        <label for="note">Note (optional)</label>
+        <input type="text" id="note" placeholder="e.g. lunch">
+      </div>
+    </div>
+    <button class="btn" id="addBtn">Save to sheet</button>
+    <button class="btn cancel" id="cancelBtn" style="display:none">Cancel editing</button>
+  </div>
+
+  <div id="list"></div>
+
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================= CONFIG — edit these two lines ================= */
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby1AjrvFKCHBz-8np_vE8oMRukkhIt2ruXUgyH4Z0AdHN23TtA0eFeyXlr0VIr1mIJtxA/exec";
+const CURRENCY   = "Rs";            // symbol shown before amounts
+const CATEGORIES = ["Food","Transport","Groceries","Bills","Shopping","Health","Other"];
+/* ================================================================= */
+
+let expenses = [];                  // {id, date:'yyyy-mm-dd', category, amount, note}
+let editingId = null;               // id of the entry being edited, or null
+let viewMode = "month";             // 'month' | 'year' | 'all'
+let viewYear, viewMonth;            // period being displayed
+
+const $ = id => document.getElementById(id);
+const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+function todayStr(){
+  const d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+}
+function fmt(n){
+  return CURRENCY + " " + Number(n).toLocaleString("en-PK", {maximumFractionDigits:2});
+}
+function setSync(state, text){
+  const b = $("syncBadge");
+  b.className = state;                // ok | err | busy | ''
+  $("syncText").textContent = text;
+}
+function toast(msg){
+  const t = $("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(t._h);
+  t._h = setTimeout(()=>t.classList.remove("show"), 2200);
+}
+
+function normalizeDate(d){
+  // already yyyy-mm-dd? keep it
+  if(/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+  const p = new Date(d);
+  if(isNaN(p)) return String(d);
+  return p.getFullYear() + "-" + String(p.getMonth()+1).padStart(2,"0") + "-" + String(p.getDate()).padStart(2,"0");
+}
+
+/* ---------- server calls ---------- */
+async function loadExpenses(){
+  if(!SCRIPT_URL) return;
+  setSync("busy","syncing…");
+  try{
+    const res = await fetch(SCRIPT_URL);
+    const data = await res.json();
+    if(!data.ok) throw new Error(data.error || "load failed");
+    expenses = data.expenses.map(e => ({...e, date: normalizeDate(e.date), amount: Number(e.amount) || 0}));
+    setSync("ok","synced");
+    render();
+  }catch(err){
+    console.error(err);
+    setSync("err","sync failed");
+    toast("Couldn't load from Google Sheet");
+  }
+}
+
+async function post(payload){
+  // text/plain avoids the CORS preflight that Apps Script can't answer
+  const res = await fetch(SCRIPT_URL, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify(payload)
+  });
+  return res.json();
+}
+
+async function saveExpense(){
+  const amount = parseFloat($("amount").value);
+  const category = $("category").value;
+  const date = $("date").value;
+  const note = $("note").value.trim();
+
+  if(!SCRIPT_URL){ toast("Add your script URL first (see setup note)"); return; }
+  if(!amount || amount <= 0){ toast("Enter an amount"); $("amount").focus(); return; }
+  if(!date){ toast("Pick a date"); return; }
+
+  $("addBtn").disabled = true;
+  setSync("busy","saving…");
+  try{
+    if(editingId){
+      const data = await post({action:"update", id:editingId, date, category, amount, note});
+      if(!data.ok) throw new Error(data.error);
+      const e = expenses.find(x => x.id === editingId);
+      if(e){ e.date=date; e.category=category; e.amount=amount; e.note=note; }
+      toast("Expense updated");
+      exitEditMode();
+    }else{
+      const data = await post({action:"add", date, category, amount, note});
+      if(!data.ok) throw new Error(data.error);
+      expenses.push({id:data.id, date, category, amount, note});
+      $("amount").value = ""; $("note").value = "";
+      toast("Saved to Google Sheet");
+    }
+    setSync("ok","synced");
+    render();
+  }catch(err){
+    console.error(err);
+    setSync("err","save failed");
+    toast("Save failed: " + (err.message || "network error"));
+  }finally{
+    $("addBtn").disabled = false;
+  }
+}
+
+function startEdit(id){
+  const e = expenses.find(x => x.id === id);
+  if(!e) return;
+  editingId = id;
+  $("amount").value = e.amount;
+  $("category").value = e.category;
+  $("date").value = e.date;
+  $("note").value = e.note;
+  $("formTitle").textContent = "Edit expense";
+  $("addBtn").textContent = "Update expense";
+  $("cancelBtn").style.display = "block";
+  $("amount").focus();
+  window.scrollTo({top:0, behavior:"smooth"});
+  render();
+}
+
+function exitEditMode(){
+  editingId = null;
+  $("amount").value = ""; $("note").value = "";
+  $("date").value = todayStr();
+  $("formTitle").textContent = "Add expense";
+  $("addBtn").textContent = "Save to sheet";
+  $("cancelBtn").style.display = "none";
+  render();
+}
+
+async function deleteExpense(id){
+  if(!confirm("Delete this expense?")) return;
+  setSync("busy","deleting…");
+  try{
+    const data = await post({action:"delete", id});
+    if(!data.ok) throw new Error(data.error);
+    expenses = expenses.filter(e => e.id !== id);
+    if(editingId === id) exitEditMode();
+    setSync("ok","synced");
+    render();
+  }catch(err){
+    console.error(err);
+    setSync("err","delete failed");
+    toast("Couldn't delete");
+  }
+}
+
+/* ---------- rendering ---------- */
+function render(){
+  // pick entries + labels for the current view
+  let entries, title;
+  if(viewMode === "month"){
+    const mKey = viewYear + "-" + String(viewMonth+1).padStart(2,"0");
+    entries = expenses.filter(e => e.date.startsWith(mKey));
+    title = monthNames[viewMonth] + " " + viewYear;
+  }else if(viewMode === "year"){
+    entries = expenses.filter(e => e.date.startsWith(viewYear + "-"));
+    title = String(viewYear);
+  }else{
+    entries = expenses.slice();
+    title = "All time";
+  }
+
+  $("monthName").textContent = title;
+  $("prevMonth").style.visibility = viewMode === "all" ? "hidden" : "visible";
+  $("nextMonth").style.visibility = viewMode === "all" ? "hidden" : "visible";
+
+  const total = entries.reduce((s,e)=>s+e.amount, 0);
+  $("monthTotal").textContent = fmt(total);
+  $("entryCount").textContent = entries.length + (entries.length===1 ? " entry" : " entries");
+
+  const tToday = expenses.filter(e=>e.date===todayStr()).reduce((s,e)=>s+e.amount,0);
+  $("todayTotal").textContent = "today: " + fmt(tToday);
+
+  const list = $("list");
+  list.innerHTML = "";
+  if(entries.length === 0){
+    list.innerHTML = '<div class="empty-state">No expenses recorded for this period yet.</div>';
+    return;
+  }
+
+  if(viewMode === "month"){
+    renderDayGroups(entries, list);
+  }else{
+    renderMonthSummaries(entries, list);
+  }
+}
+
+// month view: full entries grouped by day
+function renderDayGroups(entries, list){
+  entries.sort((a,b) => b.date.localeCompare(a.date) || Number(b.id) - Number(a.id));
+  const groups = {};
+  entries.forEach(e => (groups[e.date] = groups[e.date] || []).push(e));
+
+  Object.keys(groups).sort((a,b)=>b.localeCompare(a)).forEach(date => {
+    const g = document.createElement("div");
+    g.className = "day-group";
+    const dayTotal = groups[date].reduce((s,e)=>s+e.amount,0);
+    const d = new Date(date + "T00:00:00");
+    const label = d.toLocaleDateString("en-GB", {weekday:"short", day:"numeric", month:"short"});
+    g.innerHTML = '<div class="day-head"><span>'+label+'</span><span>'+fmt(dayTotal)+'</span></div>';
+
+    groups[date].forEach(e => {
+      const row = document.createElement("div");
+      row.className = "entry" + (e.id === editingId ? " editing" : "");
+      row.innerHTML =
+        '<span class="cat"></span>' +
+        '<span class="note"></span>' +
+        '<span class="amt"></span>' +
+        '<button class="edit" aria-label="Edit">✎</button>' +
+        '<button class="del" aria-label="Delete">✕</button>';
+      row.querySelector(".cat").textContent = e.category;
+      const noteEl = row.querySelector(".note");
+      if(e.note){ noteEl.textContent = e.note; } else { noteEl.textContent = "—"; noteEl.classList.add("empty"); }
+      row.querySelector(".amt").textContent = fmt(e.amount);
+      row.querySelector(".edit").onclick = () => startEdit(e.id);
+      row.querySelector(".del").onclick = () => deleteExpense(e.id);
+      g.appendChild(row);
+    });
+    list.appendChild(g);
+  });
+}
+
+// year / all views: one clickable summary row per month
+function renderMonthSummaries(entries, list){
+  const byMonth = {};   // key 'yyyy-mm' -> {count, total}
+  entries.forEach(e => {
+    const key = e.date.slice(0,7);
+    byMonth[key] = byMonth[key] || {count:0, total:0};
+    byMonth[key].count++;
+    byMonth[key].total += e.amount;
+  });
+
+  Object.keys(byMonth).sort((a,b)=>b.localeCompare(a)).forEach(key => {
+    const [y, m] = key.split("-").map(Number);
+    const row = document.createElement("div");
+    row.className = "month-row-item";
+    row.innerHTML =
+      '<span class="mname"></span>' +
+      '<span class="mcount"></span>' +
+      '<span class="mtotal"></span>' +
+      '<span class="arrow">›</span>';
+    row.querySelector(".mname").textContent =
+      viewMode === "all" ? monthNames[m-1] + " " + y : monthNames[m-1];
+    row.querySelector(".mcount").textContent = byMonth[key].count + " entries";
+    row.querySelector(".mtotal").textContent = fmt(byMonth[key].total);
+    row.onclick = () => { viewYear = y; viewMonth = m-1; setViewMode("month"); };
+    list.appendChild(row);
+  });
+}
+
+function setViewMode(mode){
+  viewMode = mode;
+  document.querySelectorAll(".views button").forEach(b =>
+    b.classList.toggle("active", b.dataset.v === mode));
+  render();
+}
+
+/* ---------- init ---------- */
+function init(){
+  const now = new Date();
+  viewYear = now.getFullYear();
+  viewMonth = now.getMonth();
+
+  CATEGORIES.forEach(c => {
+    const o = document.createElement("option");
+    o.value = o.textContent = c;
+    $("category").appendChild(o);
+  });
+  $("date").value = todayStr();
+
+  $("prevMonth").onclick = () => {
+    if(viewMode === "year"){ viewYear--; }
+    else { viewMonth--; if(viewMonth<0){viewMonth=11;viewYear--;} }
+    render();
+  };
+  $("nextMonth").onclick = () => {
+    if(viewMode === "year"){ viewYear++; }
+    else { viewMonth++; if(viewMonth>11){viewMonth=0;viewYear++;} }
+    render();
+  };
+  document.querySelectorAll(".views button").forEach(b => {
+    b.onclick = () => setViewMode(b.dataset.v);
+  });
+
+  // theme: start with the device's preference; button toggles it
+  if(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches){
+    document.body.classList.add("dark");
+  }
+  $("themeBtn").onclick = () => document.body.classList.toggle("dark");
+  $("addBtn").onclick = saveExpense;
+  $("cancelBtn").onclick = exitEditMode;
+  $("note").addEventListener("keydown", e => { if(e.key==="Enter") saveExpense(); });
+  $("amount").addEventListener("keydown", e => { if(e.key==="Enter") saveExpense(); });
+
+  if(!SCRIPT_URL){
+    $("setupNotice").style.display = "block";
+    setSync("", "not configured");
+  }else{
+    loadExpenses();
+  }
+  render();
+}
+init();
+</script>
+</body>
+</html>
