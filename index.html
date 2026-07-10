@@ -4,6 +4,10 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Expense Ledger</title>
+<meta name="theme-color" content="#161D18">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" type="image/png" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -264,7 +268,7 @@
 
 <script>
 /* ================= CONFIG — edit these two lines ================= */
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby1AjrvFKCHBz-8np_vE8oMRukkhIt2ruXUgyH4Z0AdHN23TtA0eFeyXlr0VIr1mIJtxA/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwevRe5dCJltG3B6SqxTNO4YNEZIjxgAlB6Nc1YToCyQzQtWH6JfZIh0kS6QYlOSI_Y/exec";
 const CURRENCY   = "Rs";            // symbol shown before amounts
 const CATEGORIES = ["Food","Transport","Groceries","Bills","Shopping","Health","Other"];
 /* ================================================================= */
@@ -571,6 +575,12 @@ function init(){
   render();
 }
 init();
+
+// PWA: register service worker (only works on https, silently skipped elsewhere)
+if ("serviceWorker" in navigator && location.protocol === "https:") {
+  navigator.serviceWorker.register("./sw.js").catch(err => console.log("SW registration skipped:", err));
+}
+
 </script>
 </body>
 </html>
